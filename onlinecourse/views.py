@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
 # <HINT> Import any new Models here
-from .models import Course, Enrollment, Question, Submission
+from .models import Course, Enrollment, Submission, Choice
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
@@ -113,18 +113,13 @@ def enroll(request, course_id):
 def submit(request, course_id):
     course = get_object_or_404(Course, pk=course_id)
     user = request.user
-    enrollment = Enrollment.objects.filter(user=user, course=course).get()
-   
-    submission = Submission.objects.create(enrollment_id = enrollment.id )
-
-    answers =  extract_answers(request)
-    for a in answers:
-        temp_c = Choice.objects.filter(id = int(a)).get()
-        submission.choices.add(temp_c)
-
-    submission.save()         
-    return HttpResponseRedirect(reverse(viewname='onlinecourse:show_exam_result', args=(course.id,submission.id ))) 
-
+    enrollment = get_object_or_404(Enrollment, course=course, user=user)
+    submission = Submission.objects.create(enrollment=enrollment)
+    for choice_id in extract_answers(request):
+        choice = get_object_or_404(Choice, pk=choice_id)
+        submission.choices.add(choice)
+    return HttpResponseRedirect(
+            reverse(viewname="onlinecourse:show_exam_result", args=(course.id, submission.id)))
 
 # <HINT> A example method to collect the selected choices from the exam form from the request object
 def extract_answers(request):
@@ -144,40 +139,29 @@ def extract_answers(request):
         # For each selected choice, check if it is a correct answer or not
         # Calculate the total score
 def show_exam_result(request, course_id, submission_id):
-    course  =  get_object_or_404(Course, pk=course_id)
-    submission =      get_object_or_404(Submission, pk=submission_id)
-    total =  0
-    total_user =  0
-    q_results = {}
-    c_submits = {}
-    c_results = {}
-    for q in course.question_set.all():
-        q_total = 0
-        q_total_user = 0
-        for c in q.choice_set.all():
-            q_total += 1  
-            temp_right = c.is_correct
-            count =  submission.choices.filter(id = c.id).count()
+    course = get_object_or_404(Course, pk=course_id)
+    submission = get_object_or_404(Submission, pk=submission_id)
+    user = submission.enrollment.user
 
-            temp_user  = count > 0 
-            c_submits[c.id] = temp_user
-            c_results[c.id] = temp_user == temp_right
-            if temp_user == temp_right:
-                q_total_user += 1        
-        q_results[q.id] =  q.grade*(q_total_user / q_total)
-        total += q.grade 
-        total_user  += q_results[q.id]
-    context  = {}
-    context["course"]  =  course
-    context["submission"]  =  submission
-    #context["choices"]  =  submission.chocies.all()
-    context["total"]  =  total
-    context["total_user"]  =  total_user
-    context["q_results"]  =  q_results
-    context["c_submits"]  =  c_submits
-    context["c_results"]  =  c_results
-    context["grade"]  =  int((total_user/total)*100)
-    #print(vars(submission.chocies))
-    #user = request.user
-    #return render(request, 'onlinecourse/show_exam_result.html', context)
-    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
+    total_correct = 0
+    user_correct = 0
+
+    for question in course.question_set.all():
+        for choice in question.choice_set.all():
+            if choice.is_correct:
+                total_correct += 1
+
+    for choice in submission.choices.all():
+        if choice.is_correct:
+            user_correct += 1
+    
+    correct_percent = user_correct * 100 // total_correct;
+    context = {'grade':correct_percent,
+                'course':course,
+                'submission':submission,
+                'user':user,
+                }
+    return render(request,
+                 "onlinecourse/exam_result_bootstrap.html",
+                 context
+                )
