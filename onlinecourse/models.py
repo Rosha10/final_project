@@ -101,23 +101,18 @@ class Enrollment(models.Model):
     # Has a grade point for each question
     # Has question content
     # Other fields and methods you would like to design
-
 class Question(models.Model):
-    
     question_text = models.CharField(null=False, max_length=200,)
     questions = models.ForeignKey(Course, on_delete=models.CASCADE)
-    # Foreign key to lesson
-    # question text
-    # question grade/mark    
 
     # <HINT> A sample model method to calculate if learner get the score of the question
-    def is_get_score(self, selected_ids):
-        all_answers = self.choice_set.filter(is_correct=True).count()
-        selected_correct = self.choice_set.filter(is_correct=True, id__in=selected_ids).count()
-        if all_answers == selected_correct:
-            return True
-        else:
-            return False
+    #def is_get_score(self, selected_ids):
+    #    all_answers = self.choice_set.filter(is_correct=True).count()
+    #    selected_correct = self.choice_set.filter(is_correct=True, id__in=selected_ids).count()
+    #    if all_answers == selected_correct:
+    #        return True
+    #    else:
+    #        return False
 
 
 #  <HINT> Create a Choice Model with:
@@ -126,7 +121,6 @@ class Question(models.Model):
     # Choice content
     # Indicate if this choice of the question is a correct one or not
     # Other fields and methods you would like to design
-
 class Choice(models.Model):
     question_id = models.ForeignKey(Question, on_delete=models.CASCADE)
     choice_text = models.CharField(max_length=200)
